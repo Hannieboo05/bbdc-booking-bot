@@ -1,20 +1,15 @@
-# config.yaml — minimal notify-only setup
-Interval: 5                 # check every 5 minutes
+# config.yaml — notify-only, runs every 5 min
 
-# your BBDC credentials
+interval: 5                # <-- lowercase!
 username: "YOUR_BBDC_USERNAME"
 password: "YOUR_BBDC_PASSWORD"
 
-# months to search (YYYYMM) — update monthly
-months: ["202508", "202509"]
+months: ["202508", "202509"]   # update monthly (YYYYMM)
 
-# which sessions you care about
-sessions: [1,2,3,4,5,6,7,8]
+sessions: [1,2,3,4,5,6,7,8]    # adjust to the sessions you want
 
-# notifications only (do not auto-book)
-Enable_booking: false
+enable_booking: false          # notify only, do NOT auto-book
 
-# keep captcha off unless you know you need OCR/Tesseract
 captcha:
   login: false
   booking: false
