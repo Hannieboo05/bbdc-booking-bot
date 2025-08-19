@@ -2,36 +2,61 @@ name: BBDC Watcher
 
 on:
   schedule:
-    - cron: "*/5 * * * *"       # every 5 minutes (UTC)
+    - cron: "*/5 * * * *"     # every 5 minutes
   workflow_dispatch:
 
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    env:
+      PYTHONUNBUFFERED: "1"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Show repo tree (top level)
+        run: |
+          pwd
+          ls -la
+
+      - name: Show Python & pip
+        run: |
+          python -V
+          python -m pip -V
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install deps
+      - name: Install deps (no legacy matplotlib)
         run: |
           python -m pip install --upgrade pip
+          # If your requirements.txt still contains matplotlib==2.2.2, drop it on the fly:
+          if grep -q "matplotlib==2.2.2" requirements.txt; then
+            sed -i '/matplotlib==2\.2\.2/d' requirements.txt
+          fi
+          cat requirements.txt
           pip install -r requirements.txt
 
-      # OPTIONAL: enable only if you flip captcha.login/booking to true in config.yaml
+      # OPTIONAL: enable only if you later use captcha.* = true in config.yaml
       - name: Install Tesseract OCR (optional)
         if: ${{ false }}
         run: |
           sudo apt-get update
           sudo apt-get install -y tesseract-ocr
 
-      # Telegram self-test: proves your token + chat id are correct
+      - name: Verify config.yaml is present (and print safe preview)
+        run: |
+          if [ ! -f config.yaml ]; then
+            echo "config.yaml not found at repo root"; exit 1
+          fi
+          echo "----- config.yaml (redacted) -----"
+          # Redact obvious secrets before printing
+          sed -E 's/(username:).*/\1 "***"/; s/(password:).*/\1 "***"/; s/(token:).*/\1 "***"/; s/(chat_id:).*/\1 "***"/' config.yaml | sed -n '1,120p'
+
       - name: Telegram self-test
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
@@ -41,15 +66,26 @@ jobs:
             -d chat_id="${TELEGRAM_CHAT_ID}" \
             -d text="✅ BBDC watcher is set up (self-test)"
 
-      - name: Run watcher
+      - name: Run watcher (auto-detect entrypoint)
         env:
-          # Optional: expose secrets to the process; the app reads config.yaml
           BBDC_USERNAME: ${{ secrets.BBDC_USERNAME }}
           BBDC_PASSWORD: ${{ secrets.BBDC_PASSWORD }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          python main.py
+          set -e
+          echo "Looking for entry file..."
+          ENTRY=""
+          if [ -f main.py ]; then ENTRY="main.py"; fi
+          if [ -z "$ENTRY" ] && [ -f app.py ]; then ENTRY="app.py"; fi
+          if [ -z "$ENTRY" ]; then
+            echo "No main.py or app.py found at repo root."
+            echo "Files:"
+            ls -la
+            exit 1
+          fi
+          echo "Running: python $ENTRY"
+          python -X dev -u "$ENTRY"
 
       - name: Upload artifacts (logs/screens)
         if: always()
