@@ -1,0 +1,29 @@
+# config.yaml — minimal notify-only setup
+Interval: 5                 # check every 5 minutes
+
+# your BBDC credentials
+username: "YOUR_BBDC_USERNAME"
+password: "YOUR_BBDC_PASSWORD"
+
+# months to search (YYYYMM) — update monthly
+months: ["202508", "202509"]
+
+# which sessions you care about
+sessions: [1,2,3,4,5,6,7,8]
+
+# notifications only (do not auto-book)
+Enable_booking: false
+
+# keep captcha off unless you know you need OCR/Tesseract
+captcha:
+  login: false
+  booking: false
+
+telegram:
+  enabled: true
+  token: "YOUR_TELEGRAM_BOT_TOKEN"
+  chat_id: "YOUR_TELEGRAM_CHAT_ID"
+
+discord:
+  enabled: false
+  webhook: ""
