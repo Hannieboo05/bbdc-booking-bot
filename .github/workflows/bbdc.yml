@@ -1,0 +1,63 @@
+name: BBDC Watcher
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"       # every 5 minutes (UTC)
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # OPTIONAL: enable only if you flip captcha.login/booking to true in config.yaml
+      - name: Install Tesseract OCR (optional)
+        if: ${{ false }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tesseract-ocr
+
+      # Telegram self-test: proves your token + chat id are correct
+      - name: Telegram self-test
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            -d text="✅ BBDC watcher is set up (self-test)"
+
+      - name: Run watcher
+        env:
+          # Optional: expose secrets to the process; the app reads config.yaml
+          BBDC_USERNAME: ${{ secrets.BBDC_USERNAME }}
+          BBDC_PASSWORD: ${{ secrets.BBDC_PASSWORD }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python main.py
+
+      - name: Upload artifacts (logs/screens)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bbdc-artifacts
+          path: |
+            *.png
+            *.html
+            *.log
+          if-no-files-found: ignore
